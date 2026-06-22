@@ -1,0 +1,18 @@
+Performance Summary
+====================================================
+  Trading days              : 117
+  Total round-trips         : 26397
+  Mean daily PnL (CNY)      :   -68,187.98
+  Std daily PnL             :    69,999.34
+  Standard error            :     6,471.44
+  t-statistic               :     -10.5368
+  p-value (one-tailed)      :     1.00e+00
+  Days with profit          :     7 / 117  (6.0%)
+  Days with loss            :   110 / 117  (94.0%)
+  Mean daily trade volume   :       225.62
+  Avg daily Sharpe          :      -0.3815
+  Annualized Sharpe         :     -15.4637
+  Avg R-squared (training)  :       0.0253
+  Win rate per trade        :       23.56%
+  Max drawdown (CNY)        : 7,947,848.00
+====================================================
