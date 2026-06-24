@@ -80,7 +80,7 @@ def load_clean_main_contract(
 
     # 2. Parse datetime
     df['ActionDateTime'] = pd.to_datetime(
-        df['ActionDateTime'], format='%Y-%m-%d %H:%M:%S.%f'
+        df['ActionDateTime'], format='mixed'
     )
     df['time_seconds'] = (
         df['ActionDateTime'].dt.hour        * 3600

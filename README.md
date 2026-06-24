@@ -270,7 +270,38 @@ B+LD marginally outperforms B under paper cost OOS (Sharpe 1.017 vs 0.824). Both
 
 ---
 
-## 10. Limitations
+## 10. LightGBM Walk-Forward Strategy (`06_lgbm_walkforward.ipynb`)
+
+To address the OLS framework's structural limitations — coefficient sign instability (CostToTrade coefficient positive on 58 days vs negative on 59 days), near-singular design matrix under multicollinearity, and inability to capture the nonlinear VOI × LDistance_diff interaction — a LightGBM binary classifier was substituted for the rolling OLS model.
+
+**Setup.** The model predicts P(up) = Pr(20-tick forward mid-price change > 0). Signal = P(up) − 0.5 ∈ [−0.5, 0.5], plugging directly into the existing backtest engine with the same entry/exit logic. Features: 15 total — the 13 OLS features (VOI lags 0–5 / spread, OIR lags 0–5 / spread, MPB / spread) plus LDiff_t0 and CostToTrade. Training window: 20 rolling days. Holding horizon: k = 20 ticks. The longer horizon was required because transaction costs (~289 CNY round-trip) structurally dominate gross profit at k=5 (~45 CNY), while at k=20 expected gross rises to ~180 CNY.
+
+**2018 in-sample results (98 test days, threshold = 0.35, P(up) > 0.85).**
+
+| Metric | LGBM (k=20) | OLS best (k=20) |
+|--------|------------|-----------------|
+| Annualised Sharpe | +2.60 | −7.53 |
+| Mean daily PnL (CNY) | +1,942 | −8,443 |
+| Win rate | 52.1% | 35.4% |
+| Total round-trips | 1,874 | 8,553 |
+| t-statistic | +1.62 (p = 0.054) | −4.70 |
+
+The high threshold (P > 0.85) is critical: at lower thresholds the per-trade cost still dominates and all scenarios are negative.
+
+**2026 OOS results (59 days, threshold = 0.35 frozen from 2018).**
+
+| Metric | 2026 OOS |
+|--------|----------|
+| Annualised Sharpe | −2.23 |
+| Mean daily PnL (CNY) | −379 |
+| Total round-trips | 71 (1.2 / day) |
+| Win rate | 40.9% |
+
+**Failure diagnosis.** The model almost never fires in 2026: P(up) signal rate at the threshold drops from 0.26% (2018) to 0.017% (2026), a 15× reduction. The root cause is not model failure but signal decay. The P(up) quintile analysis remains monotone in 2026 (Q5−Q1 spread = +0.28 pts vs +0.50 in 2018), confirming the model still ranks direction correctly — but signal strength has halved. At k=20, the expected gross profit for a Q5 entry in 2026 is ~41 CNY, far below the ~289 CNY round-trip cost. No threshold produces positive Sharpe in 2026. A contributing factor is a 2.73× widening of the VOI feature standard deviation in 2026, which compresses LGBM output probabilities toward 0.5 and further reduces signal rate. **Conclusion: the LightGBM approach successfully extracts alpha from 2018 data that OLS cannot, but the underlying microstructure signal decays enough by 2026 that it is no longer sufficient to cover transaction costs at any threshold.**
+
+---
+
+## 11. Limitations
 
 - **OLS R² declines within each sample period.** In 2018 H1, R² falls from 0.0389 (first 58 days) to 0.0358 (last 58 days). In 2026 H1, R² falls from 0.0131 to 0.0093 within 59 days. The VOI–return relationship is non-stationary even within a single half-year period; a one-day training window cannot adapt quickly enough to this drift.
 
@@ -282,6 +313,6 @@ B+LD marginally outperforms B under paper cost OOS (Sharpe 1.017 vs 0.824). Both
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
 The VOI-based signal is statistically real: under paper cost assumptions that replicate Shen (2015), Strategy B achieves an annualised Sharpe of +7.32 and a highly significant t-statistic of 4.99 (p < 10⁻⁶) over 117 trading days in 2018 H1 (both strategies at k=5 ticks). Strategy A under the same paper costs is statistically indistinguishable from zero (Sharpe −0.229, t = −0.156, p = 0.56), confirming that OIR and MPB — not VOI alone — are the source of the exploitable signal. The signal does not survive current CFFEX transaction costs, where the same-day close-leg fee is ten times the open-leg fee; Strategy B Sharpe collapses to −38.26 and 98% of trading days produce a loss. B-CTT — which uses CostToTrade to dynamically raise the signal threshold during high-liquidity-cost periods — reduces trade count by 16% and modestly reduces max drawdown, but leaves Sharpe essentially unchanged under current costs; the per-trade cost burden is too large for trade filtering alone to overcome. Adding LDistance_diff or CostToTrade to the OLS feature matrix produces no durable improvement: LDistance_diff approximately doubles trade count (amplifying cost drag), and CostToTrade's OLS coefficient alternates sign nearly randomly (58 positive vs 59 negative days), confirming it carries no stable directional information in the signal layer. The 2026 comparison reveals a structurally more competitive market: average daily volume has risen to 59,747 lots/day, but OLS R² is approximately 70% lower than in 2018, signal standard deviation declines within the 59-day period, and LDistance_diff autocorrelation has fallen from 0.744 to 0.620 — all consistent with faster algorithmic quote updating. B+LD achieves a marginally positive OOS paper-cost Sharpe (+1.017 over 29 OOS days in 2026), but this is too small a sample to be conclusive and disappears entirely under current costs. The core constraint throughout this project is not signal quality but transaction costs: the VOI framework produces genuine predictive content, and that content is entirely absorbed by the current CFFEX fee structure before any net return reaches the trader.
